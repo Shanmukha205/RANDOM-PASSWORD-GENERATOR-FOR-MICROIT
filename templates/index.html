@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Random Password Generator</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <!-- Add Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-key"></i> Password Generator</h1>
+            <p class="subtitle">Create strong, secure passwords instantly</p>
+        </header>
+        
+        <div class="form-container">
+            <div class="input-group">
+                <label for="length">
+                    <i class="fas fa-ruler"></i>
+                    Password Length
+                </label>
+                <div class="length-input">
+                    <input type="range" id="length" min="4" max="128" value="12">
+                    <span class="length-value">12</span>
+                </div>
+            </div>
+
+            <div class="checkbox-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="uppercase" checked>
+                    <span class="checkbox-text">
+                        <i class="fas fa-font"></i>
+                        Uppercase Letters (A-Z)
+                    </span>
+                </label>
+                <label class="checkbox-label">
+                    <input type="checkbox" id="lowercase" checked>
+                    <span class="checkbox-text">
+                        <i class="fas fa-text-height"></i>
+                        Lowercase Letters (a-z)
+                    </span>
+                </label>
+                <label class="checkbox-label">
+                    <input type="checkbox" id="numbers" checked>
+                    <span class="checkbox-text">
+                        <i class="fas fa-hashtag"></i>
+                        Numbers (0-9)
+                    </span>
+                </label>
+                <label class="checkbox-label">
+                    <input type="checkbox" id="symbols" checked>
+                    <span class="checkbox-text">
+                        <i class="fas fa-at"></i>
+                        Symbols (!@#$%^&*...)
+                    </span>
+                </label>
+            </div>
+
+            <button id="generate-btn" class="primary-btn">
+                <i class="fas fa-sync-alt"></i>
+                Generate Password
+            </button>
+
+            <div class="result-container">
+                <div class="password-display">
+                    <input type="text" id="password" readonly>
+                    <button id="copy-btn" class="icon-btn" title="Copy to clipboard">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+                
+                <div class="password-strength">
+                    <div class="strength-meter">
+                        <div class="strength-meter-fill" data-strength="0"></div>
+                    </div>
+                    <span class="strength-text">Password Strength: <span id="strength-value">None</span></span>
+                </div>
+
+                <div class="tooltip" id="copy-tooltip">Copied to clipboard!</div>
+                <p id="error-message" class="error"></p>
+            </div>
+        </div>
+
+        <footer class="app-footer">
+            <p>Generated passwords are never stored or logged</p>
+            <p class="security-note"><i class="fas fa-shield-alt"></i> Using cryptographically secure generation</p>
+        </footer>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const generateBtn = document.getElementById('generate-btn');
+            const copyBtn = document.getElementById('copy-btn');
+            const passwordInput = document.getElementById('password');
+            const errorMessage = document.getElementById('error-message');
+            const lengthInput = document.getElementById('length');
+            const lengthValue = document.querySelector('.length-value');
+            const strengthMeter = document.querySelector('.strength-meter-fill');
+            const strengthValue = document.getElementById('strength-value');
+            const copyTooltip = document.getElementById('copy-tooltip');
+
+            // Update length value display
+            lengthInput.addEventListener('input', function() {
+                lengthValue.textContent = this.value;
+            });
+
+            // Calculate password strength
+            function calculateStrength(password) {
+                let strength = 0;
+                if (password.length >= 8) strength += 1;
+                if (password.length >= 12) strength += 1;
+                if (/[A-Z]/.test(password)) strength += 1;
+                if (/[a-z]/.test(password)) strength += 1;
+                if (/[0-9]/.test(password)) strength += 1;
+                if (/[^A-Za-z0-9]/.test(password)) strength += 1;
+                
+                const strengthLevels = ['None', 'Very Weak', 'Weak', 'Medium', 'Strong', 'Very Strong'];
+                const strengthColors = ['#ff4d4d', '#ff4d4d', '#ffa64d', '#ffd24d', '#4dff4d', '#4dff4d'];
+                
+                strengthMeter.style.width = `${(strength / 6) * 100}%`;
+                strengthMeter.style.backgroundColor = strengthColors[strength];
+                strengthValue.textContent = strengthLevels[strength];
+                strengthValue.style.color = strengthColors[strength];
+            }
+
+            generateBtn.addEventListener('click', async function() {
+                const length = lengthInput.value;
+                const uppercase = document.getElementById('uppercase').checked;
+                const lowercase = document.getElementById('lowercase').checked;
+                const numbers = document.getElementById('numbers').checked;
+                const symbols = document.getElementById('symbols').checked;
+
+                try {
+                    const response = await fetch('/generate', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            length: parseInt(length),
+                            uppercase,
+                            lowercase,
+                            numbers,
+                            symbols
+                        })
+                    });
+
+                    const data = await response.json();
+                    
+                    if (response.ok) {
+                        passwordInput.value = data.password;
+                        calculateStrength(data.password);
+                        errorMessage.textContent = '';
+                    } else {
+                        errorMessage.textContent = data.error || 'An error occurred';
+                        passwordInput.value = '';
+                        calculateStrength('');
+                    }
+                } catch (error) {
+                    errorMessage.textContent = 'Failed to generate password. Please try again.';
+                    passwordInput.value = '';
+                    calculateStrength('');
+                }
+            });
+
+            copyBtn.addEventListener('click', function() {
+                passwordInput.select();
+                document.execCommand('copy');
+                
+                // Show tooltip
+                copyTooltip.classList.add('show');
+                setTimeout(() => {
+                    copyTooltip.classList.remove('show');
+                }, 2000);
+            });
+        });
+    </script>
+</body>
+</html> 
